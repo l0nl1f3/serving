@@ -71,6 +71,16 @@ func MakeDecider(pa *autoscalingv1alpha1.PodAutoscaler, config *autoscalerconfig
 		activationScale = mnzr
 	}
 
+	var sloTime, tolerableViolation, serviceRate float64
+	if slo, ok := pa.ServiceLevelObjective(); ok {
+		sloTime = slo
+	}
+	if tv, ok := pa.TolerableViolation(); ok {
+		tolerableViolation = tv
+	}
+	if sr, ok := pa.ServiceRate(); ok {
+		serviceRate = sr
+	}
 	return &scaling.Decider{
 		ObjectMeta: *pa.ObjectMeta.DeepCopy(),
 		Spec: scaling.DeciderSpec{
@@ -87,6 +97,10 @@ func MakeDecider(pa *autoscalingv1alpha1.PodAutoscaler, config *autoscalerconfig
 			InitialScale:        GetInitialScale(config, pa),
 			Reachable:           pa.Spec.Reachability != autoscalingv1alpha1.ReachabilityUnreachable,
 			ActivationScale:     activationScale,
+
+			SLOTime:            sloTime,
+			TolerableViolation: tolerableViolation,
+			ServiceRate:        serviceRate,
 		},
 	}
 }

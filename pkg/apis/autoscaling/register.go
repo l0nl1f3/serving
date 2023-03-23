@@ -71,7 +71,8 @@ const (
 	Memory = "memory"
 	// RPS is the requests per second reaching the Pod.
 	RPS = "rps"
-
+	// SLO is the service level objective.
+	SLO = "slo"
 	// TargetAnnotationKey is the annotation to specify what metric value the
 	// PodAutoscaler should attempt to maintain. For example,
 	//   autoscaling.knative.dev/metric: cpu
@@ -223,6 +224,13 @@ const (
 	// min-scale value while also preserving the ability to scale to zero.
 	// ActivationScale must be >= 2.
 	ActivationScaleKey = GroupName + "/activation-scale"
+	// ServiceLevelObjective is the desired service time (includes wait time) for the
+	// revision
+	ServiceLevelObjectiveKey = GroupName + "/service-level-objective"
+	// ServiceRate is the inverse of average time it takes to process a request
+	ServiceRateKey = GroupName + "/service-rate"
+	// TolerableViolation is the desired maximum violation of the SLO
+	TolerableViolationKey = GroupName + "/tolerable-violation"
 )
 
 var (
@@ -278,6 +286,19 @@ var (
 	TargetUtilizationPercentageAnnotation = kmap.KeyPriority{
 		TargetUtilizationPercentageKey,
 		GroupName + "/targetUtilizationPercentage",
+	}
+	ServiceLevelObjectiveAnnotation = kmap.KeyPriority{
+		ServiceLevelObjectiveKey,
+		GroupName + "/serviceLevelObjective",
+	}
+
+	ServiceRateAnnotation = kmap.KeyPriority{
+		ServiceRateKey,
+		GroupName + "/serviceRate",
+	}
+	TolerableViolationAnnotation = kmap.KeyPriority{
+		TolerableViolationKey,
+		GroupName + "/tolerableViolation",
 	}
 	WindowAnnotation = kmap.KeyPriority{
 		WindowAnnotationKey,

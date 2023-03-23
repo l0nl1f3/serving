@@ -243,7 +243,7 @@ func validateMetric(m map[string]string) *apis.FieldError {
 		switch classValue {
 		case KPA:
 			switch metric {
-			case Concurrency, RPS:
+			case Concurrency, RPS, SLO:
 				return nil
 			}
 		case HPA:

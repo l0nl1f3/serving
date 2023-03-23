@@ -81,7 +81,10 @@ type DeciderSpec struct {
 	// scale up two replicas in this case. In essence, this allows one to set both a
 	// min-scale value while also preserving the ability to scale to zero.
 	// ActivationScale must be >= 2.
-	ActivationScale int32
+	ActivationScale    int32
+	SLOTime            float64
+	TolerableViolation float64
+	ServiceRate        float64
 }
 
 // DeciderStatus is the current scale recommendation.

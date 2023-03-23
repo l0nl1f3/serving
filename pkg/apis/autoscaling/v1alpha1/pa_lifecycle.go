@@ -167,6 +167,21 @@ func (pa *PodAutoscaler) PanicThresholdPercentage() (percentage float64, ok bool
 	return pa.annotationFloat64(autoscaling.PanicThresholdPercentageAnnotation)
 }
 
+func (pa *PodAutoscaler) ServiceLevelObjective() (slotime float64, ok bool) {
+	// The value is validated in the webhook.
+	return pa.annotationFloat64(autoscaling.ServiceLevelObjectiveAnnotation)
+}
+
+func (pa *PodAutoscaler) ServiceRate() (servicetime float64, ok bool) {
+	// The value is validated in the webhook.
+	return pa.annotationFloat64(autoscaling.ServiceRateAnnotation)
+}
+
+func (pa *PodAutoscaler) TolerableViolation() (tolerableviolation float64, ok bool) {
+	// The value is validated in the webhook.
+	return pa.annotationFloat64(autoscaling.TolerableViolationAnnotation)
+}
+
 // ProgressDeadline returns the progress deadline annotation value, or false if not present.
 func (pa *PodAutoscaler) ProgressDeadline() (time.Duration, bool) {
 	// the value is validated in the webhook

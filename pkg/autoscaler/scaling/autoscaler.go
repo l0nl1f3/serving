@@ -132,6 +132,36 @@ func (a *autoscaler) Update(deciderSpec *DeciderSpec) {
 	a.deciderSpec = deciderSpec
 }
 
+// Calculate the exact number of pods we want based on the SLO and tolerable violation Rate
+// The function should provides service rate and SLOfactor in specs
+// The violation rate could be set to a default value
+func calcSLODesiredPodCount(lambda, mu, SLOTime, TolerableViolation float64) float64 {
+	rho := lambda / mu
+	// round up rho as Min
+	candidatePCMin := int(math.Ceil(rho)) + 1
+	candidatePCMax := int(math.Ceil(rho)) * 3
+
+	// calculate factorial[0] to factorial[candidatePCMax]
+	for c := candidatePCMin; c <= candidatePCMax; c++ {
+		var p float64 = 0
+		var coefficient float64 = 1
+		for k := 0; k < c; k++ {
+			p += coefficient
+			coefficient *= rho
+			coefficient /= float64(k + 1)
+		}
+		p += coefficient * 1 / (1 - rho/float64(c))
+		p = 1 / p
+		p *= coefficient
+		var Pr_W_ge_t = float64(c) * p / (float64(c) - rho) * math.Pow(math.E, -SLOTime*(float64(c)*mu-lambda))
+		fmt.Println(c, Pr_W_ge_t)
+		if Pr_W_ge_t < TolerableViolation {
+			return float64(c)
+		}
+	}
+	return float64(candidatePCMax)
+}
+
 // Scale calculates the desired scale based on current statistics given the current time.
 // desiredPodCount is the calculated pod count the autoscaler would like to set.
 // validScale signifies whether the desiredPodCount should be applied or not.
@@ -148,6 +178,9 @@ func (a *autoscaler) Scale(logger *zap.SugaredLogger, now time.Time) ScaleResult
 		logger.Errorw("Failed to get ready pod count via K8S Lister", zap.Error(err))
 		return invalidSR
 	}
+	if spec.ServiceRate != 0 {
+		logger.Debugw("Service mode is enabled", "serviceRate", spec.ServiceRate)
+	}
 	// Use 1 if there are zero current pods.
 	readyPodsCount := math.Max(1, float64(originalReadyPodsCount))
 
@@ -156,11 +189,11 @@ func (a *autoscaler) Scale(logger *zap.SugaredLogger, now time.Time) ScaleResult
 	metricName := spec.ScalingMetric
 	var observedStableValue, observedPanicValue float64
 	switch spec.ScalingMetric {
-	case autoscaling.RPS:
-		observedStableValue, observedPanicValue, err = a.metricClient.StableAndPanicRPS(metricKey, now)
-	default:
+	case autoscaling.Concurrency:
 		metricName = autoscaling.Concurrency // concurrency is used by default
 		observedStableValue, observedPanicValue, err = a.metricClient.StableAndPanicConcurrency(metricKey, now)
+	default:
+		observedStableValue, observedPanicValue, err = a.metricClient.StableAndPanicRPS(metricKey, now)
 	}
 
 	if err != nil {
@@ -183,9 +216,17 @@ func (a *autoscaler) Scale(logger *zap.SugaredLogger, now time.Time) ScaleResult
 	if spec.Reachable {
 		maxScaleDown = math.Floor(readyPodsCount / spec.MaxScaleDownRate)
 	}
+	var dspc, dppc float64
+	switch spec.ScalingMetric {
+	case autoscaling.SLO:
+		// TODO
+		dspc = calcSLODesiredPodCount(observedStableValue, spec.ServiceRate, spec.SLOTime, spec.TolerableViolation)
+		dppc = calcSLODesiredPodCount(observedPanicValue, spec.ServiceRate, spec.SLOTime, spec.TolerableViolation)
+	default:
+		dspc = math.Ceil(observedStableValue / spec.TargetValue)
+		dppc = math.Ceil(observedPanicValue / spec.TargetValue)
+	}
 
-	dspc := math.Ceil(observedStableValue / spec.TargetValue)
-	dppc := math.Ceil(observedPanicValue / spec.TargetValue)
 	if debugEnabled {
 		desugared.Debug(
 			fmt.Sprintf("For metric %s observed values: stable = %0.3f; panic = %0.3f; target = %0.3f "+
